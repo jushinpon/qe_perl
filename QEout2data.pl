@@ -17,12 +17,16 @@ use elements;#all setting package
 use Cwd;
 
 my $currentPath = getcwd();
-my @md_out = `find $currentPath -type f -name  *.sout`;#sout in current folder
+my @md_out = `find -L $currentPath -type f -name  *.sout`;#sout in current folder
 map { s/^\s+|\s+$//g; } @md_out;
 if(!@md_out){die "no sout files to convert\n";}
 ###need folders in loop 
 `rm -rf output`;
 for my $file (@md_out){
+    my @scfNu = `grep "^!" $file`;
+    my $scfNu = @scfNu;
+   # print "SCF NO: $scfNu\n";
+    my $multi_frame = "no";
     my $md_path = `dirname $file`;
     $md_path =~ s/^\s+|\s+$//g;
     my $md_name = `basename $file`;
@@ -40,20 +44,123 @@ for my $file (@md_out){
     #5.631780735   0.001261244   0.001887268
     my @AllCELL_PARAMETERS = `grep -A3 "CELL_PARAMETERS (angstrom)" $file|grep -v "CELL_PARAMETERS (angstrom)"|grep -v -- '--'`;
     map { s/^\s+|\s+$//g; } @AllCELL_PARAMETERS; 
+   
+    unless(@AllCELL_PARAMETERS){
+        @AllCELL_PARAMETERS = `grep -A3 'CELL_PARAMETERS {angstrom}' $file|grep -v 'CELL_PARAMETERS {angstrom}'|grep -v -- '--'`;
+        map { s/^\s+|\s+$//g; } @AllCELL_PARAMETERS; 
+    }    
+    unless(@AllCELL_PARAMETERS){
+        my $path = `dirname $file`;
+        $path =~ s/^\s+|\s+$//g;
+        my $filename = `basename $file`;
+        $filename =~ s/^\s+|\s+$//g;
+        $filename =~ s/\..*//g;
+        #print "\$filename: $filename\n";
+        #print "$path/$filename\n";
+        @AllCELL_PARAMETERS = `grep -A3 "CELL_PARAMETERS (angstrom)" $path/$filename.in|grep -v 'CELL_PARAMETERS (angstrom)'|grep -v -- '--'`;
+        map { s/^\s+|\s+$//g; } @AllCELL_PARAMETERS; 
+    }
+    
+    unless(@AllCELL_PARAMETERS){
+        my $path = `dirname $file`;
+        $path =~ s/^\s+|\s+$//g;
+        my $filename = `basename $file`;
+        $filename =~ s/^\s+|\s+$//g;
+        $filename =~ s/\..*//g;
+        #print "\$filename: $filename\n";
+        #print "$path/$filename\n";
+        @AllCELL_PARAMETERS = `grep -A3 "CELL_PARAMETERS {angstrom}" $path/$filename.in|grep -v 'CELL_PARAMETERS {angstrom}'|grep -v -- '--'`;
+        map { s/^\s+|\s+$//g; } @AllCELL_PARAMETERS; 
+    }
+
     die "No CELL_PARAMETERS were found in $file" unless (@AllCELL_PARAMETERS); 
     #my @box;#array of array, equal to frame numbers
     my $frameNo =  @AllCELL_PARAMETERS/3;
+    if($frameNo < $scfNu){
+       $frameNo =  $scfNu;
+       $multi_frame = "yes";
+    }
+    
+    if($multi_frame eq "yes"){@AllCELL_PARAMETERS = (@AllCELL_PARAMETERS) x $frameNo}
+
     #get atom coords information of all frames
     #ATOMIC_POSITIONS (angstrom)
     #Co            2.7414458575        2.7928470261        2.8314219861
     my @Allcoords = `grep -A $natom "ATOMIC_POSITIONS (angstrom)" $file|grep -v "ATOMIC_POSITIONS (angstrom)"|grep -v -- '--'`;
     map { s/^\s+|\s+$//g; } @Allcoords;
+
+    unless(@Allcoords){
+        @Allcoords = `grep -A $natom "ATOMIC_POSITIONS {angstrom}" $file|grep -v "ATOMIC_POSITIONS {angstrom}"|grep -v -- '--'`;
+        map { s/^\s+|\s+$//g; } @Allcoords; 
+    }    
+    unless(@Allcoords){
+        my $path = `dirname $file`;
+        $path =~ s/^\s+|\s+$//g;
+        my $filename = `basename $file`;
+        $filename =~ s/^\s+|\s+$//g;
+        $filename =~ s/\..*//g;
+        #print "\$filename: $filename\n";
+        #print "$path/$filename\n";
+        @Allcoords = `grep -A $natom "ATOMIC_POSITIONS (angstrom)" $path/$filename.in|grep -v 'ATOMIC_POSITIONS (angstrom)'|grep -v -- '--'`;
+        map { s/^\s+|\s+$//g; } @Allcoords; 
+    }
+    
+    unless(@Allcoords){
+        my $path = `dirname $file`;
+        $path =~ s/^\s+|\s+$//g;
+        my $filename = `basename $file`;
+        $filename =~ s/^\s+|\s+$//g;
+        $filename =~ s/\..*//g;
+        #print "\$filename: $filename\n";
+        #print "$path/$filename\n";
+        @Allcoords = `grep -A $natom "ATOMIC_POSITIONS {angstrom}" $path/$filename.in|grep -v 'ATOMIC_POSITIONS {angstrom}'|grep -v -- '--'`;
+        map { s/^\s+|\s+$//g; } @Allcoords; 
+    }
+
+    #print "@Allcoords\n";
+    #if($multi_frame eq "yes"){@extended_array = (@original_array) x 100}
+    #die;
     #my @coords_set;#array of array using slicing, equal to frame numbers
+    #if($multi_frame eq "yes"){@Allcoords = (@Allcoords) x $frameNo}
     my $coordSetNo =  @Allcoords/$natom;
+    #print "$frameNo $coordSetNo\n";
     die "cell number is not equal to coord set number in $file\n" if($coordSetNo != $frameNo);
-    #element types of atoms for all frames 
+    #element types of atoms for all frames
+
     my @Alltypes = `grep -A $natom "ATOMIC_POSITIONS (angstrom)" $file|grep -v "ATOMIC_POSITIONS (angstrom)"|awk '{print \$1}'|grep -v -- '--'`;
     map { s/^\s+|\s+$//g; } @Alltypes;
+
+
+    unless(@Alltypes){
+        @Alltypes = `grep -A $natom "ATOMIC_POSITIONS {angstrom}" $file|grep -v "ATOMIC_POSITIONS {angstrom}"|awk '{print \$1}'|grep -v -- '--'`;
+        map { s/^\s+|\s+$//g; } @Alltypes; 
+    }    
+    unless(@Alltypes){
+        my $path = `dirname $file`;
+        $path =~ s/^\s+|\s+$//g;
+        my $filename = `basename $file`;
+        $filename =~ s/^\s+|\s+$//g;
+        $filename =~ s/\..*//g;
+        #print "\$filename: $filename\n";
+        #print "$path/$filename\n";
+        @Alltypes = `grep -A $natom "ATOMIC_POSITIONS (angstrom)" $path/$filename.in|grep -v "ATOMIC_POSITIONS (angstrom)"|awk '{print \$1}'|grep -v -- '--'`;
+        map { s/^\s+|\s+$//g; } @Alltypes; 
+    }
+    
+    unless(@Alltypes){
+        my $path = `dirname $file`;
+        $path =~ s/^\s+|\s+$//g;
+        my $filename = `basename $file`;
+        $filename =~ s/^\s+|\s+$//g;
+        $filename =~ s/\..*//g;
+        #print "\$filename: $filename\n";
+        #print "$path/$filename\n";
+        @Alltypes = `grep -A $natom "ATOMIC_POSITIONS {angstrom}" $path/$filename.in|grep -v "ATOMIC_POSITIONS {angstrom}"|awk '{print \$1}'|grep -v -- '--'`;
+        map { s/^\s+|\s+$//g; } @Alltypes; 
+    }
+
+    die "No element types in $file\n" unless(@Alltypes);
+
     my @element4atoms = @Alltypes[0..$natom -1];#only need the first set information
     my @used_ele = sort keys %{{ map{$_=>1} @element4atoms}};#filer out duplicate ones 
     my %ele2id = map { $used_ele[$_] => $_ + 1  } 0 .. $#used_ele;#make a hash for element -> type id for lmp
@@ -67,6 +174,7 @@ for my $file (@md_out){
         my $mass = &elements::eleObj("$ele")->[2];
         $mass4data .= $t+1 . " $mass  \# $ele\n";
     }
+   
     chomp $mass4data;#move the new line for the last line
     # making data files below:
     #create the output folder
@@ -128,9 +236,10 @@ for my $file (@md_out){
             coords => "$coords4data"
             );
             &make_data_file(\%hash_para);
+            
             #print "$coords4data\n";
     }#all frames of a sout file  
-    
+  
 }#all sout files
 
 sub make_data_file{
