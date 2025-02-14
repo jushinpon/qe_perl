@@ -23,6 +23,17 @@ if(!@md_out){die "no sout files to convert\n";}
 ###need folders in loop 
 `rm -rf output`;
 for my $file (@md_out){
+    #check for relax or vc-relax
+    my $file_path = `dirname $file`;
+    my $file_name = `basename $file`;
+    $file_path =~ s/^\s+|\s+$//g;   
+    $file_name =~ s/^\s+|\s+$//g;    
+    my $prefix = $file_name;
+    $prefix =~ s/^\s+|\s+$//g;   
+    $prefix =~ s/\.sout//g;
+    my @relax = `grep "relax" $file_path/$prefix.in`;#relax or vc-relax
+    map { s/^\s+|\s+$//g; } @relax;
+    #print "@relax\n";
     my @scfNu = `grep "^!" $file`;
     my $scfNu = @scfNu;
    # print "SCF NO: $scfNu\n";
@@ -124,7 +135,12 @@ for my $file (@md_out){
     #if($multi_frame eq "yes"){@Allcoords = (@Allcoords) x $frameNo}
     my $coordSetNo =  @Allcoords/$natom;
     #print "$frameNo $coordSetNo\n";
-    die "cell number is not equal to coord set number in $file\n" if($coordSetNo != $frameNo);
+    if(!@relax){
+  #      die "cell number is not equal to coord set number - 1 in $file for relax\n" if($coordSetNo != $frameNo - 1 );
+  #  }
+  #  else{
+        die "cell number is not equal to coord set number in $file\n" if($coordSetNo != $frameNo);
+    }
     #element types of atoms for all frames
 
     my @Alltypes = `grep -A $natom "ATOMIC_POSITIONS (angstrom)" $file|grep -v "ATOMIC_POSITIONS (angstrom)"|awk '{print \$1}'|grep -v -- '--'`;
@@ -180,7 +196,15 @@ for my $file (@md_out){
     #create the output folder
     `rm -rf $md_path/data_files`;
     `mkdir -p $md_path/data_files`;
-    for my $fr (0..$frameNo - 1){#loop over all frames
+    my $final_number;
+    if(@relax){
+        $final_number = $frameNo - 2;#from 0 to the last but last one skipped for relax
+    }
+    else{
+        $final_number = $frameNo - 1;
+    }
+
+    for my $fr (0..$final_number){#loop over all frames
         my @box;
         for my $d (0..2){#loop over cell vectors
             my @temp = split (/\s+/,$AllCELL_PARAMETERS[$fr * 3 + $d]);

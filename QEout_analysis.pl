@@ -16,7 +16,13 @@ for my $f (@allfiles){#loop over all sout files (QE output)
     my $file_path = `dirname $f`;
     my $file_name = `basename $f`;
     my $prefix = $file_name;
+    $prefix =~ s/^\s+|\s+$//g;   
     $prefix =~ s/\.sout//g;
+    #print "$prefix\n";
+    my @relax = `grep "relax" $prefix.in`;#relax or vc-relax
+    map { s/^\s+|\s+$//g; } @relax;
+    #print "@relax\n";
+    #die;
     chomp ($file_path, $file_name,$prefix);    
     chdir("$file_path");
     my $nstep = `grep "nstep" $f |awk '{print \$3}'`;# total step for md or vcmd or relax
@@ -56,7 +62,15 @@ for my $f (@allfiles){#loop over all sout files (QE output)
     open my $sout_data ,"> ./$output_csv";
     #make headers first
     print $sout_data "$headers\n";
-    for (0..$#energy){
+    my $final_number;
+    if(@relax){
+        $final_number = $#energy - 1;#the last one of relax or vc-relax has no density value
+    }
+    else{
+        $final_number = $#energy;
+    }
+
+    for (0..$final_number){
         $energy[$_] = $energy[$_] * 0.013605684958731;
         my $ener = sprintf("%.6f",$energy[$_]);
         if($tempw[$_]){
@@ -64,6 +78,7 @@ for my $f (@allfiles){#loop over all sout files (QE output)
         }
         else{
             print $sout_data "$_,$ener,$pressure[$_],$density[$_]\n";
+            #print "$_,$ener,$pressure[$_],$density[$_]\n";
         }
     }
     close ($sout_data);
