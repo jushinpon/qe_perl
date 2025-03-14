@@ -33,7 +33,7 @@ for my $f (@allfiles){#loop over all sout files (QE output)
     $dt =~ s/^\s+|\s+$//g;
     $tempw =~ s/^\s+|\s+$//g;
    
-    my @energy = `grep "!" $f |awk '{print \$5}'`;
+    my @energy = `grep "!    total energy" $f |awk '{print \$5}'`;
     my @pressure = `grep "P=" $f |awk '{print \$6}'`;
     my @density = `grep "density =" $f |awk '{print \$3}'`;
     my @tempw = `grep "T =" $f |awk '{print \$7}'`;
